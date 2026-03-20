@@ -1,0 +1,13 @@
+{
+  "name": "fjord",
+  "version": "1.0.0",
+  "description": "Self-hosted deployment portal for Coolify",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "@anthropic-ai/sdk": "^0.39.0"
+  }
+}

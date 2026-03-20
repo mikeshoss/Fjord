@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fjord — Ship it.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+--bg: #0a0e14;
+--surface: #111820;
+--surface2: #172030;
+--border: #1e2d40;
+--border2: #243548;
+--text: #e8eef5;
+--muted: #5a7a96;
+--dim: #2a3f55;
+--accent: #3d9aff;
+--accent2: #00c8a0;
+--danger: #ff5c5c;
+--warn: #ffaa44;
+--glow: rgba(61,154,255,0.15);
+--font-display: 'Syne', sans-serif;
+--font-mono: 'JetBrains Mono', monospace;
+  }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+background: var(--bg);
+color: var(--text);
+font-family: var(--font-mono);
+min-height: 100vh;
+overflow-x: hidden;
+  }
+/* Animated background */
+body::before {
+content: '';
+position: fixed;
+inset: 0;
+background:
+radial-gradient(ellipse 80% 50% at 20% 0%, rgba(61,154,255,0.06) 0%, transparent 60%),
+radial-gradient(ellipse 60% 40% at 80% 100%, rgba(0,200,160,0.04) 0%, transparent 60%);
+pointer-events: none;
+z-index: 0;
+  }
+/* Grid lines */
+body::after {
+content: '';
+position: fixed;
+inset: 0;
+background-image:
+linear-gradient(rgba(61,154,255,0.03) 1px, transparent 1px),
+linear-gradient(90deg, rgba(61,154,255,0.03) 1px, transparent 1px);
+background-size: 40px 40px;
+pointer-events: none;
+z-index: 0;
+  }
+/* NAV */
+nav {
+position: fixed;
+top: 0; left: 0; right: 0;
+z-index: 100;
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 0 32px;
+height: 56px;
+background: rgba(10,14,20,0.85);
+backdrop-filter: blur(16px);
+border-bottom: 1px solid var(--border);
+  }
+.nav-logo {
+display: flex;
+align-items: center;
+gap: 10px;
+font-family: var(--font-display);
+font-weight: 800;
+font-size: 18px;
+letter-spacing: -0.02em;
+color: var(--text);
+text-decoration: none;
+  }
+.nav-logo-icon {
+width: 28px;
+height: 28px;
+background: linear-gradient(135deg, var(--accent), var(--accent2));
+border-radius: 6px;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 14px;
+  }
+.nav-links {
+display: flex;
+align-items: center;
+gap: 4px;
+  }
+.nav-link {
+padding: 6px 14px;
+border-radius: 6px;
+font-size: 12px;
+font-weight: 500;
+color: var(--muted);
+cursor: pointer;
+transition: all 0.15s;
+letter-spacing: 0.03em;
+text-transform: uppercase;
+  }
+.nav-link:hover { color: var(--text); background: var(--surface); }
+.nav-link.active { color: var(--accent); background: rgba(61,154,255,0.08); }
+.nav-user {
+display: flex;
+align-items: center;
+gap: 8px;
+font-size: 12px;
+color: var(--muted);
+  }
+.avatar {
+width: 28px;
+height: 28px;
+border-radius: 50%;
+background: linear-gradient(135deg, #1e3a5f, #0d2340);
+border: 1px solid var(--border2);
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 11px;
+color: var(--accent);
+font-weight: 600;
+  }
+/* MAIN */
+main {
+position: relative;
+z-index: 1;
+padding-top: 56px;
+  }
+/* VIEWS */
+.view { display: none; }
+.view.active { display: block; }
+/* ── REGISTRY ── */
+.registry {
+max-width: 900px;
+margin: 0 auto;
+padding: 48px 24px;
+  }
+.registry-header {
+display: flex;
+align-items: flex-end;
+justify-content: space-between;
+margin-bottom: 40px;
+  }
+.registry-title {
+font-family: var(--font-display);
+font-size: 32px;
+font-weight: 800;
+letter-spacing: -0.03em;
+line-height: 1;
+  }
+.registry-title span {
+color: var(--muted);
+font-weight: 400;
+font-size: 14px;
+display: block;
+font-family: var(--font-mono);
+letter-spacing: 0;
+margin-top: 6px;
+  }
+.btn-primary {
+display: flex;
+align-items: center;
+gap: 8px;
+padding: 10px 20px;
+background: var(--accent);
+color: #fff;
+border: none;
+border-radius: 8px;
+font-family: var(--font-display);
+font-weight: 700;
+font-size: 13px;
+cursor: pointer;
+transition: all 0.15s;
+letter-spacing: 0.01em;
+  }
+.btn-primary:hover {
+background: #5aabff;
+transform: translateY(-1px);
+box-shadow: 0 8px 24px rgba(61,154,255,0.3);
+  }
+/* FILTER TABS */
+.filter-tabs {
+display: flex;
+gap: 4px;
+margin-bottom: 24px;
+background: var(--surface);
+border: 1px solid var(--border);
+border-radius: 10px;
+padding: 4px;
+width: fit-content;
+  }
+.filter-tab {
+padding: 6px 16px;
+border-radius: 7px;
+font-size: 11px;
+font-weight: 500;
+color: var(--muted);
+cursor: pointer;
+transition: all 0.15s;
+letter-spacing: 0.05em;
+text-transform: uppercase;
+  }
+.filter-tab.active {
+background: var(--surface2);
+color: var(--text);
+border: 1px solid var(--border2);
+  }
+/* PROJECT CARDS */
+.projects {
+display: flex;
+flex-direction: column;
+gap: 12px;
+  }
+.project-card {
+background: var(--surface);
+border: 1px solid var(--border);
+border-radius: 12px;
+padding: 20px 24px;
+display: grid;
+grid-template-columns: 1fr auto;
+gap: 16px;
+align-items: center;
+transition: all 0.2s;
+animation: cardIn 0.4s ease backwards;
+  }
+.project-card:hover {
+border-color: var(--border2);
+background: var(--surface2);
+transform: translateX(2px);
+  }
+@keyframes cardIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+.project-card:nth-child(1) { animation-delay: 0.05s; }
+.project-card:nth-child(2) { animation-delay: 0.10s; }
+.project-card:nth-child(3) { animation-delay: 0.15s; }
+.project-card:nth-child(4) { animation-delay: 0.20s; }
+.project-left { display: flex; flex-direction: column; gap: 8px; }
+.project-top {
+display: flex;
+align-items: center;
+gap: 12px;
+  }
+.project-name {
+font-family: var(--font-display);
+font-weight: 700;
+font-size: 16px;
+letter-spacing: -0.01em;
+  }
+.status-dot {
+width: 7px;
+height: 7px;
+border-radius: 50%;
+flex-shrink: 0;
+  }
+.status-dot.live { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); animation: pulse-green 2s infinite; }
+.status-dot.building { background: var(--warn); box-shadow: 0 0 8px var(--warn); animation: pulse-warn 1s infinite; }
+.status-dot.down { background: var(--danger); }
+@keyframes pulse-green {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+@keyframes pulse-warn {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.4); }
+  }
+.status-label {
+font-size: 10px;
+font-weight: 500;
+letter-spacing: 0.08em;
+text-transform: uppercase;
+  }
+.status-label.live { color: var(--accent2); }
+.status-label.building { color: var(--warn); }
+.status-label.down { color: var(--danger); }
+.project-url {
+font-size: 12px;
+color: var(--accent);
+font-family: var(--font-mono);
+display: flex;
+align-items: center;
+gap: 6px;
+  }
+.project-url-text {
+opacity: 0.7;
+transition: opacity 0.15s;
+  }
+.project-card:hover .project-url-text { opacity: 1; }
+.project-meta {
+font-size: 11px;
+color: var(--muted);
+display: flex;
+align-items: center;
+gap: 16px;
+  }
+.project-meta-item {
+display: flex;
+align-items: center;
+gap: 5px;
+  }
+/* ACTION BUTTONS */
+.project-actions {
+display: flex;
+gap: 6px;
+align-items: center;
+  }
+.btn-action {
+padding: 7px 14px;
+border-radius: 7px;
+font-size: 11px;
+font-weight: 500;
+border: 1px solid var(--border2);
+background: transparent;
+color: var(--muted);
+cursor: pointer;
+transition: all 0.15s;
+font-family: var(--font-mono);
+letter-spacing: 0.02em;
+white-space: nowrap;
+  }
+.btn-action:hover { color: var(--text); border-color: var(--dim); background: var(--surface2); }
+.btn-action.visit:hover { color: var(--accent); border-color: var(--accent); background: rgba(61,154,255,0.08); }
+.btn-action.redeploy:hover { color: var(--accent2); border-color: var(--accent2); background: rgba(0,200,160,0.08); }
+.btn-action.logs:hover { color: var(--warn); border-color: var(--warn); background: rgba(255,170,68,0.08); }
+/* BUILDING CARD SPECIAL */
+.project-card.is-building {
+border-color: rgba(255,170,68,0.2);
+  }
+.build-progress {
+height: 2px;
+background: var(--border);
+border-radius: 2px;
+margin-top: 10px;
+overflow: hidden;
+position: relative;
+  }
+.build-progress-bar {
+position: absolute;
+top: 0; left: 0; bottom: 0;
+width: 40%;
+background: linear-gradient(90deg, transparent, var(--warn), transparent);
+animation: buildSlide 1.5s ease-in-out infinite;
+  }
+@keyframes buildSlide {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(400%); }
+  }
+/* ── DEPLOY FORM ── */
+.deploy-wrap {
+max-width: 620px;
+margin: 0 auto;
+padding: 48px 24px;
+  }
+.deploy-header {
+margin-bottom: 40px;
+  }
+.deploy-title {
+font-family: var(--font-display);
+font-size: 32px;
+font-weight: 800;
+letter-spacing: -0.03em;
+margin-bottom: 8px;
+  }
+.deploy-subtitle {
+color: var(--muted);
+font-size: 13px;
+line-height: 1.5;
+  }
+.form-group {
+margin-bottom: 28px;
+  }
+.form-label {
+display: block;
+font-size: 11px;
+font-weight: 500;
+letter-spacing: 0.08em;
+text-transform: uppercase;
+color: var(--muted);
+margin-bottom: 8px;
+  }
+.form-input {
+width: 100%;
+padding: 12px 16px;
+background: var(--surface);
+border: 1px solid var(--border);
+border-radius: 8px;
+color: var(--text);
+font-family: var(--font-mono);
+font-size: 13px;
+transition: all 0.15s;
+outline: none;
+  }
+.form-input:focus {
+border-color: var(--accent);
+background: var(--surface2);
+box-shadow: 0 0 0 3px rgba(61,154,255,0.1);
+  }
+.form-input::placeholder { color: var(--dim); }
+.form-textarea {
+resize: vertical;
+min-height: 100px;
+line-height: 1.6;
+font-size: 12px;
+  }
+.form-hint {
+margin-top: 6px;
+font-size: 11px;
+color: var(--muted);
+  }
+/* URL PREVIEW */
+.url-preview {
+margin-bottom: 32px;
+padding: 16px 20px;
+background: rgba(61,154,255,0.06);
+border: 1px solid rgba(61,154,255,0.2);
+border-radius: 10px;
+display: flex;
+align-items: center;
+gap: 12px;
+opacity: 0;
+transform: translateY(4px);
+transition: all 0.3s;
+  }
+.url-preview.visible {
+opacity: 1;
+transform: translateY(0);
+  }
+.url-preview-icon {
+width: 32px;
+height: 32px;
+background: rgba(61,154,255,0.15);
+border-radius: 8px;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 14px;
+flex-shrink: 0;
+  }
+.url-preview-label {
+font-size: 10px;
+text-transform: uppercase;
+letter-spacing: 0.08em;
+color: var(--muted);
+margin-bottom: 3px;
+  }
+.url-preview-value {
+font-family: var(--font-mono);
+font-size: 13px;
+color: var(--accent);
+font-weight: 500;
+  }
+/* DEPLOY BUTTON */
+.btn-deploy {
+width: 100%;
+padding: 14px;
+background: linear-gradient(135deg, var(--accent), #1a7adc);
+color: #fff;
+border: none;
+border-radius: 10px;
+font-family: var(--font-display);
+font-weight: 800;
+font-size: 15px;
+letter-spacing: 0.02em;
+cursor: pointer;
+transition: all 0.2s;
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 10px;
+  }
+.btn-deploy:hover {
+transform: translateY(-2px);
+box-shadow: 0 12px 32px rgba(61,154,255,0.35);
+  }
+.btn-deploy:active { transform: translateY(0); }
+/* DEPLOYING STATE */
+.deploy-progress {
+display: none;
+margin-top: 24px;
+padding: 20px;
+background: var(--surface);
+border: 1px solid var(--border);
+border-radius: 10px;
+  }
+.deploy-progress.active { display: block; }
+.deploy-progress-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 12px;
+  }
+.deploy-progress-title {
+font-size: 12px;
+font-weight: 500;
+color: var(--muted);
+text-transform: uppercase;
+letter-spacing: 0.06em;
+  }
+.deploy-progress-status {
+font-size: 11px;
+color: var(--warn);
+display: flex;
+align-items: center;
+gap: 6px;
+  }
+.log-stream {
+background: #060a0f;
+border: 1px solid var(--border);
+border-radius: 8px;
+padding: 14px 16px;
+height: 180px;
+overflow-y: auto;
+font-size: 11px;
+line-height: 1.7;
+color: #7a9ab5;
+  }
+.log-line { display: block; }
+.log-line.success { color: var(--accent2); }
+.log-line.info { color: var(--accent); }
+.log-line.warn { color: var(--warn); }
+/* STEPS */
+.deploy-steps {
+display: flex;
+gap: 6px;
+margin-bottom: 14px;
+flex-wrap: wrap;
+  }
+.step {
+display: flex;
+align-items: center;
+gap: 5px;
+padding: 4px 10px;
+border-radius: 20px;
+font-size: 10px;
+font-weight: 500;
+letter-spacing: 0.04em;
+text-transform: uppercase;
+border: 1px solid var(--border);
+color: var(--dim);
+transition: all 0.3s;
+  }
+.step.done { color: var(--accent2); border-color: rgba(0,200,160,0.3); background: rgba(0,200,160,0.06); }
+.step.active { color: var(--warn); border-color: rgba(255,170,68,0.4); background: rgba(255,170,68,0.08); }
+/* EMPTY STATE */
+.empty-state {
+text-align: center;
+padding: 80px 24px;
+color: var(--muted);
+  }
+.empty-icon {
+font-size: 48px;
+margin-bottom: 16px;
+opacity: 0.4;
+  }
+.empty-title {
+font-family: var(--font-display);
+font-size: 18px;
+font-weight: 700;
+color: var(--text);
+margin-bottom: 8px;
+opacity: 0.6;
+  }
+.empty-sub { font-size: 13px; line-height: 1.6; }
+/* DIVIDER */
+.section-divider {
+height: 1px;
+background: var(--border);
+margin: 40px 0;
+  }
+.all-projects-title {
+font-size: 11px;
+text-transform: uppercase;
+letter-spacing: 0.1em;
+color: var(--muted);
+margin-bottom: 16px;
+font-weight: 500;
+  }
+/* Scrollbar */
+.log-stream::-webkit-scrollbar { width: 4px; }
+.log-stream::-webkit-scrollbar-track { background: transparent; }
+.log-stream::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 2px; }
+</style>
+</head>
+<body>
+<nav>
+<a class="nav-logo" href="#">
+<div class="nav-logo-icon">⌇</div>
+    fjord
+</a>
+<div class="nav-links">
+<div class="nav-link active" onclick="showView('registry')">Projects</div>
+<div class="nav-link" onclick="showView('deploy')">Deploy</div>
+</div>
+<div class="nav-user">
+<div class="avatar">MS</div>
+<span>mike.shoss</span>
+</div>
+</nav>
+<main>
+<!-- REGISTRY VIEW -->
+<div class="view active" id="view-registry">
+<div class="registry">
+<div class="registry-header">
+<div class="registry-title">
+          My Projects
+<span>caseware.steadypat.ch</span>
+</div>
+<button class="btn-primary" onclick="showView('deploy')">
+          + New Project
+</button>
+</div>
+<div class="filter-tabs">
+<div class="filter-tab active" onclick="filterProjects('all')">All</div>
+<div class="filter-tab" onclick="filterProjects('live')">Live</div>
+<div class="filter-tab" onclick="filterProjects('building')">Building</div>
+</div>
+<div class="projects" id="myProjects">
+<!-- Populated by JS -->
+</div>
+<div class="section-divider"></div>
+<div class="all-projects-title">All Team Projects</div>
+<div class="projects" id="teamProjects">
+<!-- Populated by JS -->
+</div>
+</div>
+</div>
+<!-- DEPLOY VIEW -->
+<div class="view" id="view-deploy">
+<div class="deploy-wrap">
+<div class="deploy-header">
+<div class="deploy-title">Deploy a Project</div>
+<div class="deploy-subtitle">Paste your GitHub repo URL. Fjord detects the stack, generates a Dockerfile, and ships it automatically.</div>
+</div>
+<div class="form-group">
+<label class="form-label">GitHub Repo URL</label>
+<input
+class="form-input"
+type="text"
+placeholder="https://github.com/CasewareProduct/my-project"
+id="repoInput"
+oninput="updatePreview(this.value)"
+/>
+<div class="form-hint">Must be in the CasewareProduct org</div>
+</div>
+<div class="url-preview" id="urlPreview">
+<div class="url-preview-icon">⌇</div>
+<div>
+<div class="url-preview-label">Your project will be live at</div>
+<div class="url-preview-value" id="urlPreviewValue">caseware.steadypat.ch/mike-...</div>
+</div>
+</div>
+<div class="form-group">
+<label class="form-label">Environment Variables <span style="color:var(--dim);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+<textarea
+class="form-input form-textarea"
+placeholder="API_KEY=abc123&#10;DATABASE_URL=postgresql://...&#10;ANTHROPIC_API_KEY=sk-ant-..."
+id="envVarsInput"
+></textarea>
+<div class="form-hint">One per line, KEY=VALUE format</div>
+</div>
+<button class="btn-deploy" id="deployBtn" onclick="startDeploy()">
+<span>⌇</span> Ship it
+</button>
+<div class="deploy-progress" id="deployProgress">
+<div class="deploy-progress-header">
+<span class="deploy-progress-title">Deploying</span>
+<span class="deploy-progress-status" id="deployStatusLabel">
+<div class="status-dot building" style="width:6px;height:6px"></div>
+            Building…
+</span>
+</div>
+<div class="deploy-steps" id="deploySteps">
+<div class="step" id="step-github">GitHub</div>
+<div class="step" id="step-claude">Stack detect</div>
+<div class="step" id="step-dockerfile">Dockerfile</div>
+<div class="step" id="step-coolify">Coolify</div>
+<div class="step" id="step-live">Live</div>
+</div>
+<div class="log-stream" id="logStream"></div>
+</div>
+</div>
+</div>
+</main>
+<script>
+const CURRENT_USER = 'mike';
+
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  const idx = name === 'registry' ? 0 : 1;
+  document.querySelectorAll('.nav-link')[idx].classList.add('active');
+  if (name === 'registry') loadProjects();
+}
+
+function updatePreview(val) {
+  const preview = document.getElementById('urlPreview');
+  const previewVal = document.getElementById('urlPreviewValue');
+  if (!val) { preview.classList.remove('visible'); return; }
+  try {
+    const match = val.match(/github\.com\/[^/]+\/([^/\s]+)/);
+    if (match) {
+      const repo = match[1].toLowerCase().replace(/[^a-z0-9-]/g, '-');
+      previewVal.textContent = `caseware.steadypat.ch/${CURRENT_USER}-${repo}`;
+      preview.classList.add('visible');
+    } else {
+      preview.classList.remove('visible');
+    }
+  } catch(e) { preview.classList.remove('visible'); }
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function createProjectCard(project, isTeam) {
+  const isBuilding = project.status === 'building';
+  const isDown = project.status === 'down';
+  const statusClass = isBuilding ? 'building' : isDown ? 'down' : 'live';
+  const statusText = isBuilding ? 'Building…' : isDown ? 'Down' : 'Live';
+  const visitDisabled = isBuilding || isDown;
+
+  let html = `
+    <div class="project-card ${isBuilding ? 'is-building' : ''}" ${isTeam ? 'style="opacity:0.6"' : ''} data-status="${project.status}">
+      <div class="project-left">
+        <div class="project-top">
+          <span class="project-name" ${isTeam ? 'style="font-size:14px"' : ''}>${project.name}</span>
+          <div class="status-dot ${statusClass}"></div>
+          <span class="status-label ${statusClass}">${statusText}</span>
+        </div>
+        <div class="project-url">
+          <span style="opacity:0.4">↗</span>
+          <span class="project-url-text">caseware.steadypat.ch/${project.name}</span>
+        </div>`;
+
+  if (!isTeam) {
+    html += `
+        <div class="project-meta">
+          <div class="project-meta-item">
+            <span style="opacity:0.5">⟳</span>
+            <span>Deployed ${timeAgo(project.lastDeployed)}</span>
+          </div>
+          <div class="project-meta-item">
+            <span style="opacity:0.5">⎇</span>
+            <span>${project.branch || 'main'}</span>
+          </div>
+        </div>`;
+  }
+
+  if (isBuilding) {
+    html += `
+        <div class="build-progress">
+          <div class="build-progress-bar"></div>
+        </div>`;
+  }
+
+  html += `
+      </div>
+      <div class="project-actions">`;
+
+  if (isTeam) {
+    html += `
+        <button class="btn-action visit" ${visitDisabled ? 'style="opacity:0.4;pointer-events:none"' : ''} onclick="window.open('${project.url}','_blank')">Visit ↗</button>`;
+  } else {
+    html += `
+        <button class="btn-action visit" ${visitDisabled ? 'style="opacity:0.4;pointer-events:none"' : ''} onclick="window.open('${project.url}','_blank')">Visit ↗</button>
+        <button class="btn-action redeploy" ${isBuilding ? 'style="opacity:0.4;pointer-events:none"' : ''} onclick="redeploy('${project.id}')">Redeploy</button>
+        <button class="btn-action logs" onclick="viewLogs('${project.id}')">Logs</button>`;
+  }
+
+  html += `
+      </div>
+    </div>`;
+  return html;
+}
+
+let allProjects = [];
+
+async function loadProjects() {
+  try {
+    const res = await fetch('/api/projects');
+    if (!res.ok) throw new Error('Failed to load projects');
+    allProjects = await res.json();
+    renderProjects();
+  } catch (err) {
+    document.getElementById('myProjects').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⌇</div>
+        <div class="empty-title">No projects yet</div>
+        <div class="empty-sub">Deploy your first project to get started.</div>
+      </div>`;
+    document.getElementById('teamProjects').innerHTML = '';
+  }
+}
+
+function renderProjects(filter) {
+  const myPrefix = CURRENT_USER + '-';
+  let myProjects = allProjects.filter(p => p.name.startsWith(myPrefix));
+  let teamProjects = allProjects.filter(p => !p.name.startsWith(myPrefix));
+
+  if (filter && filter !== 'all') {
+    myProjects = myProjects.filter(p => p.status === filter);
+    teamProjects = teamProjects.filter(p => p.status === filter);
+  }
+
+  const myContainer = document.getElementById('myProjects');
+  const teamContainer = document.getElementById('teamProjects');
+
+  if (myProjects.length === 0 && teamProjects.length === 0) {
+    myContainer.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⌇</div>
+        <div class="empty-title">No projects yet</div>
+        <div class="empty-sub">Deploy your first project to get started.</div>
+      </div>`;
+    teamContainer.innerHTML = '';
+  } else {
+    myContainer.innerHTML = myProjects.map(p => createProjectCard(p, false)).join('');
+    teamContainer.innerHTML = teamProjects.map(p => createProjectCard(p, true)).join('');
+  }
+}
+
+function filterProjects(filter) {
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  renderProjects(filter);
+}
+
+async function redeploy(appId) {
+  try {
+    const res = await fetch(`/api/projects/${appId}/redeploy`, { method: 'POST' });
+    if (!res.ok) throw new Error('Redeploy failed');
+    loadProjects();
+  } catch (err) {
+    alert('Redeploy failed: ' + err.message);
+  }
+}
+
+function viewLogs(appId) {
+  const logStream = document.getElementById('logStream');
+  const progress = document.getElementById('deployProgress');
+
+  // Show the deploy progress panel with logs
+  showView('deploy');
+  progress.classList.add('active');
+  logStream.innerHTML = '';
+
+  const evtSource = new EventSource(`/api/projects/${appId}/logs`);
+  evtSource.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    if (data.type === 'log') {
+      logStream.innerHTML += `<span class="log-line">${data.message}</span>`;
+      logStream.scrollTop = logStream.scrollHeight;
+    }
+  };
+  evtSource.onerror = function() {
+    evtSource.close();
+  };
+}
+
+function startDeploy() {
+  const repoUrl = document.getElementById('repoInput').value.trim();
+  if (!repoUrl) return alert('Please enter a GitHub repo URL.');
+
+  const envVars = document.getElementById('envVarsInput').value;
+  const btn = document.getElementById('deployBtn');
+  const progress = document.getElementById('deployProgress');
+  const logStream = document.getElementById('logStream');
+  const statusLabel = document.getElementById('deployStatusLabel');
+
+  // Reset UI
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  btn.innerHTML = '<span>⟳</span> Deploying…';
+  btn.style.cursor = 'not-allowed';
+  progress.classList.add('active');
+  logStream.innerHTML = '';
+
+  // Reset steps
+  ['github', 'claude', 'dockerfile', 'coolify', 'live'].forEach(s => {
+    document.getElementById('step-' + s).className = 'step';
+  });
+
+  statusLabel.innerHTML = '<div class="status-dot building" style="width:6px;height:6px"></div> Building…';
+
+  // Start SSE deploy
+  const body = JSON.stringify({ repoUrl, envVars });
+
+  fetch('/api/deploy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: body,
+  }).then(response => {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    function read() {
+      reader.read().then(({ done, value }) => {
+        if (done) return;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              handleDeployEvent(data);
+            } catch {}
+          }
+        }
+        read();
+      });
+    }
+    read();
+  }).catch(err => {
+    logStream.innerHTML += `<span class="log-line warn">Error: ${err.message}</span>`;
+    resetDeployButton();
+  });
+}
+
+function handleDeployEvent(data) {
+  const logStream = document.getElementById('logStream');
+
+  if (data.type === 'log') {
+    const cls = data.logType === 'success' ? 'success' : data.logType === 'warn' ? 'warn' : data.logType === 'info' ? 'info' : '';
+    const prefix = data.logType === 'success' ? '✓' : data.logType === 'warn' ? '⟳' : '→';
+    logStream.innerHTML += `<span class="log-line ${cls}">${prefix} ${data.message}</span>`;
+    logStream.scrollTop = logStream.scrollHeight;
+  }
+
+  if (data.type === 'step') {
+    const el = document.getElementById('step-' + data.step);
+    if (el) {
+      if (data.status === 'done') {
+        el.className = 'step done';
+        el.innerHTML = '✓ ' + el.textContent.replace(/^[✓⟳]\s*/, '');
+      } else if (data.status === 'active') {
+        el.className = 'step active';
+        el.innerHTML = '⟳ ' + el.textContent.replace(/^[✓⟳]\s*/, '');
+      }
+    }
+  }
+
+  if (data.type === 'complete') {
+    const statusLabel = document.getElementById('deployStatusLabel');
+    statusLabel.innerHTML = '<div class="status-dot live" style="width:6px;height:6px"></div><span style="color:var(--accent2)">Live</span>';
+    const btn = document.getElementById('deployBtn');
+    btn.innerHTML = '✓ Deployed — View Project ↗';
+    btn.style.opacity = '1';
+    btn.style.background = 'linear-gradient(135deg, var(--accent2), #00a884)';
+    btn.style.cursor = 'pointer';
+    btn.disabled = false;
+    btn.onclick = () => showView('registry');
+  }
+
+  if (data.type === 'error') {
+    logStream.innerHTML += `<span class="log-line warn">✗ ${data.message}</span>`;
+    logStream.scrollTop = logStream.scrollHeight;
+    resetDeployButton();
+  }
+}
+
+function resetDeployButton() {
+  const btn = document.getElementById('deployBtn');
+  btn.disabled = false;
+  btn.style.opacity = '1';
+  btn.innerHTML = '<span>⌇</span> Ship it';
+  btn.style.cursor = 'pointer';
+  btn.style.background = 'linear-gradient(135deg, var(--accent), #1a7adc)';
+  btn.onclick = startDeploy;
+}
+
+// Load projects on page load
+loadProjects();
+</script>
+</body>
+</html>

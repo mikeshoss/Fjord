@@ -1,0 +1,12 @@
+services:
+  fjord:
+    build: .
+    container_name: fjord
+    restart: unless-stopped
+    env_file: .env
+    networks:
+      - coolify
+
+networks:
+  coolify:
+    external: true
