@@ -765,6 +765,12 @@ id="envVarsInput"
 let CURRENT_USER = 'unknown';
 let IS_ADMIN = false;
 
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
 // --- Auth ---
 
 async function doLogin() {
@@ -886,17 +892,20 @@ function createProjectCard(project, isTeam) {
   // Admins get full controls on all projects
   const hasFullControls = !isTeam || IS_ADMIN;
 
+  const safeName = esc(project.name);
+  const safeUrl = esc(project.url);
+
   let html = `
-    <div class="project-card ${isBuilding ? 'is-building' : ''}" ${isTeam && !IS_ADMIN ? 'style="opacity:0.6"' : ''} data-status="${project.status}">
+    <div class="project-card ${isBuilding ? 'is-building' : ''}" ${isTeam && !IS_ADMIN ? 'style="opacity:0.6"' : ''} data-status="${esc(project.status)}">
       <div class="project-left">
         <div class="project-top">
-          <span class="project-name" ${isTeam && !IS_ADMIN ? 'style="font-size:14px"' : ''}>${project.name}</span>
+          <span class="project-name" ${isTeam && !IS_ADMIN ? 'style="font-size:14px"' : ''}>${safeName}</span>
           <div class="status-dot ${statusClass}"></div>
           <span class="status-label ${statusClass}">${statusText}</span>
         </div>
         <div class="project-url">
           <span style="opacity:0.4">↗</span>
-          <span class="project-url-text">caseware.steadypat.ch/${project.name}</span>
+          <span class="project-url-text">caseware.steadypat.ch/${safeName}</span>
         </div>`;
 
   if (hasFullControls) {
@@ -908,7 +917,7 @@ function createProjectCard(project, isTeam) {
           </div>
           <div class="project-meta-item">
             <span style="opacity:0.5">⎇</span>
-            <span>${project.branch || 'main'}</span>
+            <span>${esc(project.branch || 'main')}</span>
           </div>
         </div>`;
   }
@@ -923,12 +932,12 @@ function createProjectCard(project, isTeam) {
   html += `
       </div>
       <div class="project-actions">
-        <button class="btn-action visit" ${visitDisabled ? 'style="opacity:0.4;pointer-events:none"' : ''} onclick="window.open('${project.url}','_blank')">Visit ↗</button>`;
+        <button class="btn-action visit" ${visitDisabled ? 'style="opacity:0.4;pointer-events:none"' : ''} onclick="window.open('${safeUrl}','_blank')">Visit ↗</button>`;
 
   if (hasFullControls) {
     html += `
-        <button class="btn-action redeploy" ${isBuilding ? 'style="opacity:0.4;pointer-events:none"' : ''} onclick="redeploy('${project.id}')">Redeploy</button>
-        <button class="btn-action logs" onclick="viewLogs('${project.id}')">Logs</button>`;
+        <button class="btn-action redeploy" ${isBuilding ? 'style="opacity:0.4;pointer-events:none"' : ''} onclick="redeploy('${esc(project.id)}')">Redeploy</button>
+        <button class="btn-action logs" onclick="viewLogs('${esc(project.id)}')">Logs</button>`;
   }
 
   html += `

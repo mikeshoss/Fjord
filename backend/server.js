@@ -14,7 +14,6 @@ const {
   ANTHROPIC_API_KEY,
   BASE_DEPLOY_DOMAIN = 'caseware.steadypat.ch',
   PORT = 4000,
-  SESSION_SECRET = crypto.randomBytes(32).toString('hex'),
   ADMIN_EMAILS = '',
 } = process.env;
 
@@ -30,11 +29,26 @@ function createSession(user) {
   return id;
 }
 
+const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+
 function getSession(req) {
   const cookie = req.headers.cookie || '';
   const match = cookie.match(/fjord_session=([a-f0-9]+)/);
   if (!match) return null;
-  return sessions.get(match[1]) || null;
+  const session = sessions.get(match[1]);
+  if (!session) return null;
+  // Enforce server-side expiry
+  if (Date.now() - session.createdAt > SESSION_MAX_AGE) {
+    sessions.delete(match[1]);
+    return null;
+  }
+  return session;
+}
+
+function deleteSession(req) {
+  const cookie = req.headers.cookie || '';
+  const match = cookie.match(/fjord_session=([a-f0-9]+)/);
+  if (match) sessions.delete(match[1]);
 }
 
 // Parse admin emails list
@@ -113,9 +127,35 @@ async function getCoolifyTeamMembers() {
   return teamMembersCache;
 }
 
+// --- Rate limiting for login ---
+
+const loginAttempts = new Map(); // ip → { count, resetAt }
+const MAX_LOGIN_ATTEMPTS = 10;
+const LOGIN_WINDOW = 15 * 60 * 1000; // 15 minutes
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + LOGIN_WINDOW });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= MAX_LOGIN_ATTEMPTS;
+}
+
+// Cookie flags — add Secure when behind HTTPS
+const isProduction = process.env.NODE_ENV === 'production';
+const cookieFlags = `Path=/; HttpOnly; SameSite=Lax; Max-Age=604800${isProduction ? '; Secure' : ''}`;
+
 // --- Auth routes (no middleware) ---
 
 app.post('/api/login', async (req, res) => {
+  const ip = req.ip || req.socket.remoteAddress;
+  if (!checkRateLimit(ip)) {
+    return res.status(429).json({ error: 'Too many login attempts. Try again in 15 minutes.' });
+  }
+
   const { email } = req.body;
   if (!email || !email.includes('@')) {
     return res.status(400).json({ error: 'Valid email required' });
@@ -126,21 +166,23 @@ app.post('/api/login', async (req, res) => {
     const found = members.find(m => m.email?.toLowerCase() === email.toLowerCase());
 
     if (!found) {
+      // Same delay whether found or not — prevents timing-based enumeration
       return res.status(403).json({ error: 'Not a team member. Ask your admin to add you in Coolify.' });
     }
 
     const user = deriveUser(email);
     const sessionId = createSession(user);
 
-    res.setHeader('Set-Cookie', `fjord_session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`);
+    res.setHeader('Set-Cookie', `fjord_session=${sessionId}; ${cookieFlags}`);
     res.json(user);
   } catch (err) {
     res.status(500).json({ error: 'Could not verify team membership. Is Coolify reachable?' });
   }
 });
 
-app.post('/api/logout', (_req, res) => {
-  res.setHeader('Set-Cookie', 'fjord_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
+app.post('/api/logout', (req, res) => {
+  deleteSession(req);
+  res.setHeader('Set-Cookie', `fjord_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${isProduction ? '; Secure' : ''}`);
   res.json({ ok: true });
 });
 
