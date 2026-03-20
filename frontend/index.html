@@ -602,8 +602,8 @@ font-weight: 500;
 <div class="nav-link" onclick="showView('deploy')">Deploy</div>
 </div>
 <div class="nav-user">
-<div class="avatar">MS</div>
-<span>mike.shoss</span>
+<div class="avatar" id="navAvatar">...</div>
+<span id="navUsername">loading...</span>
 </div>
 </nav>
 <main>
@@ -692,7 +692,19 @@ id="envVarsInput"
 </div>
 </main>
 <script>
-const CURRENT_USER = 'mike';
+let CURRENT_USER = 'unknown';
+
+async function loadIdentity() {
+  try {
+    const res = await fetch('/api/me');
+    const me = await res.json();
+    CURRENT_USER = me.username;
+    document.getElementById('navAvatar').textContent = me.initials;
+    document.getElementById('navUsername').textContent = me.displayName;
+  } catch {
+    // Fallback — identity unavailable
+  }
+}
 
 function showView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -990,8 +1002,8 @@ function resetDeployButton() {
   btn.onclick = startDeploy;
 }
 
-// Load projects on page load
-loadProjects();
+// Load identity then projects on page load
+loadIdentity().then(() => loadProjects());
 </script>
 </body>
 </html>

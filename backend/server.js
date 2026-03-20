@@ -68,6 +68,18 @@ async function coolifyAPI(method, endpoint, body) {
 
 // --- Routes ---
 
+// Identity — derive username from Cloudflare Access headers
+app.get('/api/me', (req, res) => {
+  const email = req.headers['cf-access-authenticated-user-email'] || '';
+  // email like "mike.shoss@company.com" → username "mike"
+  // Falls back to the part before @ or before first dot
+  const local = email.split('@')[0] || '';
+  const username = local.split('.')[0].toLowerCase().replace(/[^a-z0-9-]/g, '-') || 'unknown';
+  const displayName = local || 'unknown';
+  const initials = displayName.split('.').map(p => p[0]?.toUpperCase() || '').join('').slice(0, 2) || '??';
+  res.json({ username, displayName, initials, email });
+});
+
 // Serve frontend
 app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'index.html'));
