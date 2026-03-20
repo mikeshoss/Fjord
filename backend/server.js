@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const path = require('path');
 const Anthropic = require('@anthropic-ai/sdk');
 
@@ -13,14 +14,45 @@ const {
   ANTHROPIC_API_KEY,
   BASE_DEPLOY_DOMAIN = 'caseware.steadypat.ch',
   PORT = 4000,
+  SESSION_SECRET = crypto.randomBytes(32).toString('hex'),
+  ADMIN_EMAILS = '',
 } = process.env;
 
 const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+
+// --- Sessions (in-memory) ---
+
+const sessions = new Map(); // sessionId → { email, username, displayName, initials, isAdmin }
+
+function createSession(user) {
+  const id = crypto.randomBytes(32).toString('hex');
+  sessions.set(id, { ...user, createdAt: Date.now() });
+  return id;
+}
+
+function getSession(req) {
+  const cookie = req.headers.cookie || '';
+  const match = cookie.match(/fjord_session=([a-f0-9]+)/);
+  if (!match) return null;
+  return sessions.get(match[1]) || null;
+}
+
+// Parse admin emails list
+const adminEmails = ADMIN_EMAILS.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
 
 // --- Helpers ---
 
 function sanitize(str) {
   return str.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+}
+
+function deriveUser(email) {
+  const local = email.split('@')[0] || '';
+  const username = local.split('.')[0].toLowerCase().replace(/[^a-z0-9-]/g, '-') || 'unknown';
+  const displayName = local || 'unknown';
+  const initials = displayName.split('.').map(p => p[0]?.toUpperCase() || '').join('').slice(0, 2) || '??';
+  const isAdmin = adminEmails.includes(email.toLowerCase());
+  return { email, username, displayName, initials, isAdmin };
 }
 
 function parseRepoUrl(url) {
@@ -66,21 +98,64 @@ async function coolifyAPI(method, endpoint, body) {
   return text ? JSON.parse(text) : null;
 }
 
-// --- Routes ---
+// Cache Coolify team members (refresh every 5 minutes)
+let teamMembersCache = null;
+let teamMembersCacheTime = 0;
+const CACHE_TTL = 5 * 60 * 1000;
 
-// Identity — derive username from Cloudflare Access headers
-app.get('/api/me', (req, res) => {
-  const email = req.headers['cf-access-authenticated-user-email'] || '';
-  // email like "mike.shoss@company.com" → username "mike"
-  // Falls back to the part before @ or before first dot
-  const local = email.split('@')[0] || '';
-  const username = local.split('.')[0].toLowerCase().replace(/[^a-z0-9-]/g, '-') || 'unknown';
-  const displayName = local || 'unknown';
-  const initials = displayName.split('.').map(p => p[0]?.toUpperCase() || '').join('').slice(0, 2) || '??';
-  res.json({ username, displayName, initials, email });
+async function getCoolifyTeamMembers() {
+  if (teamMembersCache && Date.now() - teamMembersCacheTime < CACHE_TTL) {
+    return teamMembersCache;
+  }
+  const members = await coolifyAPI('GET', '/api/v1/teams/current/members');
+  teamMembersCache = Array.isArray(members) ? members : [];
+  teamMembersCacheTime = Date.now();
+  return teamMembersCache;
+}
+
+// --- Auth routes (no middleware) ---
+
+app.post('/api/login', async (req, res) => {
+  const { email } = req.body;
+  if (!email || !email.includes('@')) {
+    return res.status(400).json({ error: 'Valid email required' });
+  }
+
+  try {
+    const members = await getCoolifyTeamMembers();
+    const found = members.find(m => m.email?.toLowerCase() === email.toLowerCase());
+
+    if (!found) {
+      return res.status(403).json({ error: 'Not a team member. Ask your admin to add you in Coolify.' });
+    }
+
+    const user = deriveUser(email);
+    const sessionId = createSession(user);
+
+    res.setHeader('Set-Cookie', `fjord_session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`);
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Could not verify team membership. Is Coolify reachable?' });
+  }
 });
 
-// Serve frontend
+app.post('/api/logout', (_req, res) => {
+  res.setHeader('Set-Cookie', 'fjord_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
+  res.json({ ok: true });
+});
+
+// --- Auth middleware (everything below requires login) ---
+
+function requireAuth(req, res, next) {
+  const session = getSession(req);
+  if (!session) {
+    return res.status(401).json({ error: 'Not logged in' });
+  }
+  req.user = session;
+  next();
+}
+
+// Serve frontend (no auth — the page itself handles login state)
 app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'index.html'));
 });
@@ -91,6 +166,15 @@ app.get('/deploy', (_req, res) => {
 
 // Static files from frontend directory
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
+
+// All /api/* routes below require auth
+app.use('/api', requireAuth);
+
+// --- API: Me ---
+
+app.get('/api/me', (req, res) => {
+  res.json(req.user);
+});
 
 // --- API: Deploy ---
 
@@ -129,20 +213,20 @@ app.post('/api/deploy', async (req, res) => {
 
     const { repo } = parsed;
 
+    // Use logged-in user's username for project naming
+    const username = req.user.username;
+
     // Step 1: Verify repo and derive project name
     sendStep('github', 'active');
     sendLog(`Fetching repo: ${GITHUB_ORG}/${repo}`, 'info');
 
-    let repoData;
     try {
-      repoData = await githubAPI('GET', `/repos/${GITHUB_ORG}/${repo}`);
+      await githubAPI('GET', `/repos/${GITHUB_ORG}/${repo}`);
     } catch (err) {
       send({ type: 'error', message: `Repository not found: ${GITHUB_ORG}/${repo}` });
       return res.end();
     }
 
-    // Derive project name from authenticated user or repo owner
-    const username = sanitize(parsed.owner);
     const repoName = sanitize(repo);
     const projectName = `${username}-${repoName}`;
 
@@ -400,7 +484,6 @@ app.get('/api/projects', async (req, res) => {
     let apps = [];
 
     for (const project of projects) {
-      // Each project may have multiple applications
       try {
         const detail = await coolifyAPI('GET', `/api/v1/projects/${project.uuid}`);
         if (detail.applications) {

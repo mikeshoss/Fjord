@@ -585,6 +585,51 @@ color: var(--muted);
 margin-bottom: 16px;
 font-weight: 500;
   }
+/* ── LOGIN ── */
+.login-wrap {
+max-width: 400px;
+margin: 0 auto;
+padding: 120px 24px 48px;
+text-align: center;
+  }
+.login-logo {
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 12px;
+font-family: var(--font-display);
+font-weight: 800;
+font-size: 28px;
+letter-spacing: -0.02em;
+margin-bottom: 8px;
+  }
+.login-logo-icon {
+width: 40px;
+height: 40px;
+background: linear-gradient(135deg, var(--accent), var(--accent2));
+border-radius: 8px;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 20px;
+  }
+.login-subtitle {
+color: var(--muted);
+font-size: 13px;
+margin-bottom: 40px;
+  }
+.login-error {
+display: none;
+padding: 10px 14px;
+background: rgba(255,92,92,0.1);
+border: 1px solid rgba(255,92,92,0.3);
+border-radius: 8px;
+color: var(--danger);
+font-size: 12px;
+margin-bottom: 16px;
+text-align: left;
+  }
+.login-error.visible { display: block; }
 /* Scrollbar */
 .log-stream::-webkit-scrollbar { width: 4px; }
 .log-stream::-webkit-scrollbar-track { background: transparent; }
@@ -592,7 +637,7 @@ font-weight: 500;
 </style>
 </head>
 <body>
-<nav>
+<nav id="mainNav" style="display:none">
 <a class="nav-logo" href="#">
 <div class="nav-logo-icon">⌇</div>
     fjord
@@ -604,11 +649,36 @@ font-weight: 500;
 <div class="nav-user">
 <div class="avatar" id="navAvatar">...</div>
 <span id="navUsername">loading...</span>
+<div class="nav-link" onclick="logout()" style="margin-left:4px;font-size:10px;opacity:0.5">Logout</div>
 </div>
 </nav>
 <main>
+<!-- LOGIN VIEW -->
+<div class="view active" id="view-login">
+<div class="login-wrap">
+<div class="login-logo">
+<div class="login-logo-icon">⌇</div>
+      fjord
+</div>
+<div class="login-subtitle">Sign in with your team email</div>
+<div class="login-error" id="loginError"></div>
+<div class="form-group">
+<input
+class="form-input"
+type="email"
+placeholder="you@company.com"
+id="loginEmail"
+onkeydown="if(event.key==='Enter')doLogin()"
+/>
+<div class="form-hint">Use the email your admin added in Coolify</div>
+</div>
+<button class="btn-deploy" id="loginBtn" onclick="doLogin()">
+      Sign in
+</button>
+</div>
+</div>
 <!-- REGISTRY VIEW -->
-<div class="view active" id="view-registry">
+<div class="view" id="view-registry">
 <div class="registry">
 <div class="registry-header">
 <div class="registry-title">
@@ -693,26 +763,88 @@ id="envVarsInput"
 </main>
 <script>
 let CURRENT_USER = 'unknown';
+let IS_ADMIN = false;
 
-async function loadIdentity() {
+// --- Auth ---
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  if (!email) return;
+
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  errEl.classList.remove('visible');
+
   try {
-    const res = await fetch('/api/me');
-    const me = await res.json();
-    CURRENT_USER = me.username;
-    document.getElementById('navAvatar').textContent = me.initials;
-    document.getElementById('navUsername').textContent = me.displayName;
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Login failed';
+      errEl.classList.add('visible');
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      return;
+    }
+    setUser(data);
+    showView('registry');
   } catch {
-    // Fallback — identity unavailable
+    errEl.textContent = 'Could not connect to server.';
+    errEl.classList.add('visible');
+    btn.disabled = false;
+    btn.style.opacity = '1';
   }
 }
+
+function setUser(me) {
+  CURRENT_USER = me.username;
+  IS_ADMIN = me.isAdmin || false;
+  document.getElementById('navAvatar').textContent = me.initials;
+  document.getElementById('navUsername').textContent = me.displayName;
+  document.getElementById('mainNav').style.display = '';
+}
+
+async function checkSession() {
+  try {
+    const res = await fetch('/api/me');
+    if (res.ok) {
+      const me = await res.json();
+      setUser(me);
+      showView('registry');
+      return;
+    }
+  } catch {}
+  // Not logged in — show login
+  showView('login');
+}
+
+async function logout() {
+  await fetch('/api/logout', { method: 'POST' });
+  CURRENT_USER = 'unknown';
+  IS_ADMIN = false;
+  document.getElementById('mainNav').style.display = 'none';
+  showView('login');
+}
+
+// --- Views ---
 
 function showView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
-  const idx = name === 'registry' ? 0 : 1;
-  document.querySelectorAll('.nav-link')[idx].classList.add('active');
-  if (name === 'registry') loadProjects();
+  if (name === 'login') {
+    document.getElementById('mainNav').style.display = 'none';
+  } else {
+    document.getElementById('mainNav').style.display = '';
+    const idx = name === 'registry' ? 0 : 1;
+    document.querySelectorAll('.nav-link')[idx].classList.add('active');
+    if (name === 'registry') loadProjects();
+  }
 }
 
 function updatePreview(val) {
@@ -743,18 +875,22 @@ function timeAgo(dateStr) {
   return `${days}d ago`;
 }
 
+// --- Project Cards ---
+
 function createProjectCard(project, isTeam) {
   const isBuilding = project.status === 'building';
   const isDown = project.status === 'down';
   const statusClass = isBuilding ? 'building' : isDown ? 'down' : 'live';
   const statusText = isBuilding ? 'Building…' : isDown ? 'Down' : 'Live';
   const visitDisabled = isBuilding || isDown;
+  // Admins get full controls on all projects
+  const hasFullControls = !isTeam || IS_ADMIN;
 
   let html = `
-    <div class="project-card ${isBuilding ? 'is-building' : ''}" ${isTeam ? 'style="opacity:0.6"' : ''} data-status="${project.status}">
+    <div class="project-card ${isBuilding ? 'is-building' : ''}" ${isTeam && !IS_ADMIN ? 'style="opacity:0.6"' : ''} data-status="${project.status}">
       <div class="project-left">
         <div class="project-top">
-          <span class="project-name" ${isTeam ? 'style="font-size:14px"' : ''}>${project.name}</span>
+          <span class="project-name" ${isTeam && !IS_ADMIN ? 'style="font-size:14px"' : ''}>${project.name}</span>
           <div class="status-dot ${statusClass}"></div>
           <span class="status-label ${statusClass}">${statusText}</span>
         </div>
@@ -763,7 +899,7 @@ function createProjectCard(project, isTeam) {
           <span class="project-url-text">caseware.steadypat.ch/${project.name}</span>
         </div>`;
 
-  if (!isTeam) {
+  if (hasFullControls) {
     html += `
         <div class="project-meta">
           <div class="project-meta-item">
@@ -786,14 +922,11 @@ function createProjectCard(project, isTeam) {
 
   html += `
       </div>
-      <div class="project-actions">`;
-
-  if (isTeam) {
-    html += `
+      <div class="project-actions">
         <button class="btn-action visit" ${visitDisabled ? 'style="opacity:0.4;pointer-events:none"' : ''} onclick="window.open('${project.url}','_blank')">Visit ↗</button>`;
-  } else {
+
+  if (hasFullControls) {
     html += `
-        <button class="btn-action visit" ${visitDisabled ? 'style="opacity:0.4;pointer-events:none"' : ''} onclick="window.open('${project.url}','_blank')">Visit ↗</button>
         <button class="btn-action redeploy" ${isBuilding ? 'style="opacity:0.4;pointer-events:none"' : ''} onclick="redeploy('${project.id}')">Redeploy</button>
         <button class="btn-action logs" onclick="viewLogs('${project.id}')">Logs</button>`;
   }
@@ -803,6 +936,8 @@ function createProjectCard(project, isTeam) {
     </div>`;
   return html;
 }
+
+// --- Projects ---
 
 let allProjects = [];
 
@@ -825,8 +960,16 @@ async function loadProjects() {
 
 function renderProjects(filter) {
   const myPrefix = CURRENT_USER + '-';
-  let myProjects = allProjects.filter(p => p.name.startsWith(myPrefix));
-  let teamProjects = allProjects.filter(p => !p.name.startsWith(myPrefix));
+  let myProjects, teamProjects;
+
+  if (IS_ADMIN) {
+    // Admin sees everything in "My Projects" with full controls
+    myProjects = allProjects;
+    teamProjects = [];
+  } else {
+    myProjects = allProjects.filter(p => p.name.startsWith(myPrefix));
+    teamProjects = allProjects.filter(p => !p.name.startsWith(myPrefix));
+  }
 
   if (filter && filter !== 'all') {
     myProjects = myProjects.filter(p => p.status === filter);
@@ -835,6 +978,8 @@ function renderProjects(filter) {
 
   const myContainer = document.getElementById('myProjects');
   const teamContainer = document.getElementById('teamProjects');
+  const divider = document.querySelector('.section-divider');
+  const teamTitle = document.querySelector('.all-projects-title');
 
   if (myProjects.length === 0 && teamProjects.length === 0) {
     myContainer.innerHTML = `
@@ -844,9 +989,19 @@ function renderProjects(filter) {
         <div class="empty-sub">Deploy your first project to get started.</div>
       </div>`;
     teamContainer.innerHTML = '';
+    divider.style.display = 'none';
+    teamTitle.style.display = 'none';
   } else {
     myContainer.innerHTML = myProjects.map(p => createProjectCard(p, false)).join('');
-    teamContainer.innerHTML = teamProjects.map(p => createProjectCard(p, true)).join('');
+    if (teamProjects.length > 0) {
+      teamContainer.innerHTML = teamProjects.map(p => createProjectCard(p, true)).join('');
+      divider.style.display = '';
+      teamTitle.style.display = '';
+    } else {
+      teamContainer.innerHTML = '';
+      divider.style.display = IS_ADMIN ? 'none' : '';
+      teamTitle.style.display = IS_ADMIN ? 'none' : '';
+    }
   }
 }
 
@@ -870,7 +1025,6 @@ function viewLogs(appId) {
   const logStream = document.getElementById('logStream');
   const progress = document.getElementById('deployProgress');
 
-  // Show the deploy progress panel with logs
   showView('deploy');
   progress.classList.add('active');
   logStream.innerHTML = '';
@@ -888,6 +1042,8 @@ function viewLogs(appId) {
   };
 }
 
+// --- Deploy ---
+
 function startDeploy() {
   const repoUrl = document.getElementById('repoInput').value.trim();
   if (!repoUrl) return alert('Please enter a GitHub repo URL.');
@@ -898,7 +1054,6 @@ function startDeploy() {
   const logStream = document.getElementById('logStream');
   const statusLabel = document.getElementById('deployStatusLabel');
 
-  // Reset UI
   btn.disabled = true;
   btn.style.opacity = '0.5';
   btn.innerHTML = '<span>⟳</span> Deploying…';
@@ -906,20 +1061,16 @@ function startDeploy() {
   progress.classList.add('active');
   logStream.innerHTML = '';
 
-  // Reset steps
   ['github', 'claude', 'dockerfile', 'coolify', 'live'].forEach(s => {
     document.getElementById('step-' + s).className = 'step';
   });
 
   statusLabel.innerHTML = '<div class="status-dot building" style="width:6px;height:6px"></div> Building…';
 
-  // Start SSE deploy
-  const body = JSON.stringify({ repoUrl, envVars });
-
   fetch('/api/deploy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: body,
+    body: JSON.stringify({ repoUrl, envVars }),
   }).then(response => {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -1002,8 +1153,8 @@ function resetDeployButton() {
   btn.onclick = startDeploy;
 }
 
-// Load identity then projects on page load
-loadIdentity().then(() => loadProjects());
+// --- Init ---
+checkSession();
 </script>
 </body>
 </html>
